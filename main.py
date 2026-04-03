@@ -13,21 +13,30 @@ import argparse
 import sys
 from config import ANTHROPIC_API_KEY, ETSY_API_KEY, ETSY_ACCESS_TOKEN, ETSY_SHOP_ID
 
+ETSY_VARS = {
+    "ETSY_API_KEY": ETSY_API_KEY,
+    "ETSY_ACCESS_TOKEN": ETSY_ACCESS_TOKEN,
+    "ETSY_SHOP_ID": ETSY_SHOP_ID,
+}
+
+
+def etsy_available() -> bool:
+    """Return True only when all three Etsy credentials are present."""
+    return all(ETSY_VARS.values())
+
 
 def check_env() -> None:
-    missing = []
     if not ANTHROPIC_API_KEY:
-        missing.append("ANTHROPIC_API_KEY")
-    if not ETSY_API_KEY:
-        missing.append("ETSY_API_KEY")
-    if not ETSY_ACCESS_TOKEN:
-        missing.append("ETSY_ACCESS_TOKEN")
-    if not ETSY_SHOP_ID:
-        missing.append("ETSY_SHOP_ID")
-    if missing:
-        print(f"[ERROR] Missing environment variables: {', '.join(missing)}")
-        print("Copy .env.example to .env and fill in your credentials.")
+        print("[ERROR] ANTHROPIC_API_KEY is not set.")
+        print("Copy .env.example to .env and add your Anthropic API key.")
         sys.exit(1)
+
+    missing_etsy = [k for k, v in ETSY_VARS.items() if not v]
+    if missing_etsy:
+        print(
+            f"[WARNING] Etsy credentials not set: {', '.join(missing_etsy)}\n"
+            "Etsy agents will be unavailable until these are configured.\n"
+        )
 
 
 AGENT_MAP = {
@@ -37,6 +46,9 @@ AGENT_MAP = {
     "analytics": "agents.analytics_agent",
     "orchestrator": "agents.orchestrator",
 }
+
+# All agents in this file require Etsy credentials to function
+ETSY_AGENTS = {"listing", "order", "customer", "analytics", "orchestrator"}
 
 BANNER = """
 ╔══════════════════════════════════════════╗
@@ -65,10 +77,30 @@ def run_agent(module_name: str, task: str) -> str:
     return mod.run(task)
 
 
-def interactive_loop(module_name: str) -> None:
+def _require_etsy_or_exit(agent_key: str) -> None:
+    """Exit with a helpful message if Etsy credentials are missing for an Etsy agent."""
+    if agent_key in ETSY_AGENTS and not etsy_available():
+        missing = [k for k, v in ETSY_VARS.items() if not v]
+        print(
+            f"[ERROR] The '{agent_key}' agent requires Etsy credentials that are not set: "
+            f"{', '.join(missing)}\n"
+            "Add them to your .env file and restart."
+        )
+        sys.exit(1)
+
+
+def interactive_loop(module_name: str, agent_key: str) -> None:
     print(BANNER)
     agent_label = module_name.split(".")[-1].replace("_", " ").title()
     print(f"Active agent: {agent_label}\n")
+
+    if agent_key in ETSY_AGENTS and not etsy_available():
+        missing = [k for k, v in ETSY_VARS.items() if not v]
+        print(
+            f"[WARNING] Etsy credentials not configured ({', '.join(missing)}).\n"
+            "This agent cannot process requests until those variables are set.\n"
+            "You can still type 'help' or 'quit'.\n"
+        )
 
     while True:
         try:
@@ -84,6 +116,14 @@ def interactive_loop(module_name: str) -> None:
             break
         if task.lower() == "help":
             print(EXAMPLES)
+            continue
+
+        if agent_key in ETSY_AGENTS and not etsy_available():
+            missing = [k for k, v in ETSY_VARS.items() if not v]
+            print(
+                f"[ERROR] Cannot run Etsy agent — missing credentials: {', '.join(missing)}\n"
+                "Set them in your .env file and restart.\n"
+            )
             continue
 
         print("\nThinking...\n")
@@ -110,12 +150,14 @@ def main() -> None:
 
     check_env()
 
-    module_name = AGENT_MAP[args.agent]
+    agent_key = args.agent
+    module_name = AGENT_MAP[agent_key]
 
     if args.task:
+        _require_etsy_or_exit(agent_key)
         print(run_agent(module_name, args.task))
     else:
-        interactive_loop(module_name)
+        interactive_loop(module_name, agent_key)
 
 
 if __name__ == "__main__":
