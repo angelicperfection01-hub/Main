@@ -67,6 +67,7 @@
       padding: 10px 8px;
       overflow-y: auto;
       flex: 1;
+      min-height: 0;
     }
 
     .agent-btn {
@@ -105,8 +106,9 @@
     #files-section {
       border-top: 1px solid var(--border);
       padding: 10px 8px;
-      max-height: 220px;
+      max-height: 160px;
       overflow-y: auto;
+      flex-shrink: 0;
     }
 
     #files-section h3 {
