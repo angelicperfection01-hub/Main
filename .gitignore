@@ -1,4 +1,11 @@
 __pycache__/
 *.pyc
 .env
-author_data/
+# keep the folder structure but not contents
+author_data/**
+!author_data/.gitkeep
+!author_data/research/.gitkeep
+!author_data/outlines/.gitkeep
+!author_data/manuscripts/.gitkeep
+!author_data/covers/.gitkeep
+!author_data/website/.gitkeep
